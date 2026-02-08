@@ -1,59 +1,46 @@
 # Introduction2RL_2025
 
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/release/python-3126/)
+[![Gymnasium](https://img.shields.io/badge/Gymnasium-latest-green.svg)](https://gymnasium.farama.org/)
 
-Additional material for the lecture and exercises held at Paris Lodron University Salzburg in 2024 by me (Simon Hirlaender).
+Course materials for the Introduction to Reinforcement Learning lecture and exercises held at Paris Lodron University Salzburg in 2025 by Simon Hirlaender.
 
+<img width="500" alt="Mars Rover" src="https://github.com/MathPhysSim/Introduction2RL_2024/assets/22523245/419f30be-12f0-4445-a077-56b0c8f03eda">
 
-This is our little Mars rover from the lecture:
-<img width="1012" alt="image" src="https://github.com/MathPhysSim/Introduction2RL_2024/assets/22523245/419f30be-12f0-4445-a077-56b0c8f03eda">
+## 📚 Course Overview
 
+This repository contains all necessary resources for the Introduction to Reinforcement Learning course, including:
 
+- Custom Gymnasium environments (Mars Rover)
+- Tutorial notebooks with step-by-step explanations
+- Exercise materials and solutions
+- Reference implementations of key RL algorithms
 
-# Mars Rover Environment with Gymnasium
+## 🚀 Getting Started
 
-The Mars Rover Environment is a reinforcement learning scenario implemented with Gymnasium. This environment simulates a rover navigating across a linear Martian landscape, aiming to reach a designated goal. It's designed to provide a simple yet challenging task for reinforcement learning algorithms, focusing on probabilistic state transitions and reward optimization.
+### Prerequisites
 
-## Environment Overview
+- Python 3.12 or higher
+- Knowledge of basic Python programming
+- Familiarity with fundamental concepts in probability and linear algebra
 
-In this simulated Martian landscape, the rover faces a series of states it can navigate through by moving left or right. The environment is discrete, with terminal states at both ends of the linear space. The rover's goal is to reach the most rewarding terminal state, overcoming the uncertainty introduced by probabilistic movement outcomes.
+### Installation
 
-### States
+1. Clone this repository:
+   ```bash
+   git clone https://github.com/MathPhysSim/Introduction2RL_2025.git
+   cd Introduction2RL_2025
+   ```
 
-- The environment is composed of `n_states + 2` states, where `n_states` is the number of non-terminal states. The two additional states represent the terminal points at either end of the rover's path.
-- The rover's position within these states determines its progress and influences the rewards it accumulates.
+2. Create a virtual environment (optional but recommended):
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
 
-### Actions
+3. Install required dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-The rover can perform two actions, each intended to move it one step in the desired direction:
-- **Left (0)**: Move one state to the left.
-- **Right (1)**: Move one state to the right.
-
-The actual outcome of an action is subject to probabilities, adding an element of unpredictability to the rover's movement.
-
-### Transition Probabilities
-
-The movement outcomes are influenced by the following probabilities:
-- **p_stay**: The probability that the rover remains in its current state, despite taking an action.
-- **p_backward**: The probability that the rover moves in the opposite direction of the intended action.
-- The probability of moving forward, as intended, is `1 - p_stay - p_backward`, ensuring all probabilities sum to 1.
-
-### Rewards
-
-- **left_side_reward**: Reward received upon reaching the left terminal state.
-- **right_side_reward**: Higher reward for reaching the right terminal state, incentivizing the rover to navigate towards this goal.
-
-### Terminal States
-
-Reaching a terminal state concludes the current episode. These states represent the rover's successful navigation to an endpoint of its journey, with rewards allocated based on the terminal state reached.
-
-## Integration with Gymnasium
-
-This environment is compatible with the Gymnasium library, facilitating its use in reinforcement learning projects. Gymnasium provides a standardized API for interacting with the environment, including initiating episodes, taking actions, and receiving feedback in the form of state observations, rewards, and termination signals.
-
-## Customization
-
-The Mars Rover Environment supports several customization options, allowing users to adjust the number of states (`n_states`), the probabilities of action outcomes (`p_stay`, `p_backward`), and the rewards for reaching terminal states (`left_side_reward`, `right_side_reward`). This flexibility makes it suitable for various experimentation needs, from introductory reinforcement learning tasks to more complex strategic explorations.
-
-## Usage Note
-
-To utilize this environment, ensure you have the Gymnasium library installed in your Python environment (`pip install gymnasium`). The environment inherits from Gymnasium's `DiscreteEnv`, using its mechanisms for discrete state and action spaces, probabilistic transitions, and reward definitions.
+## 📂 Project Structure
