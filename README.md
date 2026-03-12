@@ -3,15 +3,31 @@
 [![Python >=3.10](https://img.shields.io/badge/python-≥3.10-blue.svg)](https://www.python.org/)
 [![Gymnasium](https://img.shields.io/badge/Gymnasium-v1.x-green.svg)](https://gymnasium.farama.org/)
 
-Course materials for the **Introduction to Reinforcement Learning** lecture and exercises held at Paris Lodron University Salzburg in **2026** by **Simon Hirlaender**.
+Exercise materials for the course **[536.112 — Reinforcement Learning (UE, 1 SSt)](https://online.uni-salzburg.at/plus_online/ee/ui/ca2/app/desktop/#/slc.tm.cp/student/courses/536.112)**, Summer Semester 2026, Paris Lodron University Salzburg.
+
+| | |
+|---|---|
+| **Instructors** | Simon Hirlaender, Kajsa Miho Björkbom, Sarah Trausner |
+| **Department** | FB Artificial Intelligence and Human Interfaces |
+| **Language** | German |
 
 <img width="500" alt="Mars Rover" src="https://github.com/MathPhysSim/Introduction2RL_2024/assets/22523245/419f30be-12f0-4445-a077-56b0c8f03eda">
 
-## Course Overview
+## Course Content
 
-This repository provides:
+The exercises deepen the foundations and applications of the Deep Reinforcement Learning lecture:
 
-- A fully self-contained **Mars Rover** Gymnasium environment
+- Formal foundations of RL: Markov Decision Processes
+- Dynamic Programming and Monte Carlo methods
+- Model-free approaches: value-based approximation, policy gradients, and hybrid methods
+- Model-based and Bayesian approaches
+- Open problems and current applications
+
+Students learn to implement fundamental algorithms and conduct computational experiments in reinforcement learning.
+
+## Repository Contents
+
+- A self-contained **Mars Rover** Gymnasium environment
 - Reference implementations of classical RL algorithms
   - Value Iteration
   - Policy Iteration
