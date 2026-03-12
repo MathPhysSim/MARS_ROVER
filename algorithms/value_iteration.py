@@ -1,94 +1,114 @@
 """
-Value Iteration algorithm implementation for solving MDPs.
+Value Iteration for tabular MDPs.
 
-This module provides a reference implementation of the Value Iteration
-algorithm for finding optimal policies in Markov Decision Processes.
+Finds the optimal value function and deterministic policy by iteratively
+applying the Bellman optimality operator.
+
+Author: Simon Hirlaender, 2026
 """
 
-import numpy as np
-from typing import Tuple, Dict, List, Any, Optional
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass, field
+from typing import Optional
+
 import gymnasium as gym
+import numpy as np
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ConvergenceInfo:
+    """Diagnostics returned alongside the solution."""
+
+    iterations: int = 0
+    converged: bool = False
+    delta_history: list[float] = field(default_factory=list)
 
 
 def value_iteration(
     env: gym.Env,
-    theta: float = 1e-6,
     gamma: float = 0.99,
-    max_iterations: int = 1000
-) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Value Iteration algorithm for finding the optimal value function and policy.
-    
-    Args:
-        env: The environment (must have discrete states and actions)
-        theta: Convergence threshold
-        gamma: Discount factor
-        max_iterations: Maximum number of iterations
-        
-    Returns:
-        Tuple of (optimal value function, optimal policy)
-    """
-    # Initialize value function
-    V = np.zeros(env.nS)
-    
-    # Initialize policy
-    policy = np.zeros([env.nS, env.nA])
-    
-    # Value iteration
-    for i in range(max_iterations):
-        delta = 0
-        
-        # Update each state
-        for s in range(env.nS):
-            v = V[s]
-            
-            # Calculate action values for this state
-            action_values = np.zeros(env.nA)
-            
-            for a in range(env.nA):
-                # Calculate expected value for each action
-                for prob, next_state, reward, done in env.P[s][a]:
-                    # Calculate expected value
-                    action_values[a] += prob * (reward + gamma * V[next_state] * (not done))
-            
-            # Update value function with best action value
-            best_action_value = np.max(action_values)
-            delta = max(delta, np.abs(v - best_action_value))
-            V[s] = best_action_value
-        
-        # Check convergence
-        if delta < theta:
-            print(f"Value iteration converged after {i+1} iterations.")
-            break
-    
-    # Extract policy from value function
-    for s in range(env.nS):
-        action_values = np.zeros(env.nA)
-        
-        for a in range(env.nA):
-            for prob, next_state, reward, done in env.P[s][a]:
-                action_values[a] += prob * (reward + gamma * V[next_state] * (not done))
-        
-        # Greedy policy
-        policy[s, np.argmax(action_values)] = 1.0
-    
-    return V, policy
+    theta: float = 1e-8,
+    max_iterations: int = 10_000,
+) -> tuple[np.ndarray, np.ndarray, ConvergenceInfo]:
+    """Run Value Iteration on an environment that exposes ``P``, ``nS``, ``nA``.
 
+    Parameters
+    ----------
+    env:
+        Discrete environment with attributes ``nS``, ``nA``, and ``P``.
+    gamma:
+        Discount factor.
+    theta:
+        Convergence threshold on the max Bellman residual.
+    max_iterations:
+        Upper bound on the number of sweeps.
+
+    Returns
+    -------
+    V : np.ndarray
+        Optimal state-value function of shape ``(nS,)``.
+    policy : np.ndarray
+        Deterministic policy of shape ``(nS,)`` with integer action indices.
+    info : ConvergenceInfo
+        Convergence diagnostics.
+    """
+    nS: int = env.nS  # type: ignore[attr-defined]
+    nA: int = env.nA  # type: ignore[attr-defined]
+    P = env.P  # type: ignore[attr-defined]
+
+    V = np.zeros(nS, dtype=np.float64)
+    info = ConvergenceInfo()
+
+    for it in range(1, max_iterations + 1):
+        delta = 0.0
+        for s in range(nS):
+            q = np.zeros(nA, dtype=np.float64)
+            for a in range(nA):
+                for prob, next_s, reward, done in P[s][a]:
+                    q[a] += prob * (reward + gamma * V[next_s] * (1.0 - done))
+            best = q.max()
+            delta = max(delta, abs(V[s] - best))
+            V[s] = best
+
+        info.delta_history.append(delta)
+        if delta < theta:
+            info.converged = True
+            info.iterations = it
+            logger.info("Value Iteration converged after %d iterations (Δ=%.2e).", it, delta)
+            break
+    else:
+        info.iterations = max_iterations
+        logger.warning("Value Iteration did NOT converge within %d iterations (Δ=%.2e).", max_iterations, delta)
+
+    # --- extract greedy policy ---
+    policy = np.zeros(nS, dtype=np.intp)
+    for s in range(nS):
+        q = np.zeros(nA, dtype=np.float64)
+        for a in range(nA):
+            for prob, next_s, reward, done in P[s][a]:
+                q[a] += prob * (reward + gamma * V[next_s] * (1.0 - done))
+        policy[s] = int(q.argmax())
+
+    return V, policy, info
+
+
+# ---------------------------------------------------------------------------
+# Quick test
+# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    # Simple test with a small environment
+    logging.basicConfig(level=logging.INFO)
     from environments.mars_rover import MarsRoverEnv
-    
-    # Create environment
+
     env = MarsRoverEnv(n_states=5)
-    
-    # Run value iteration
-    V, policy = value_iteration(env)
-    
-    # Print results
-    print("Optimal Value Function:")
-    print(V)
-    print("\nOptimal Policy:")
+    V, policy, info = value_iteration(env)
+
+    print(f"\nOptimal Value Function:  {np.array2string(V, precision=4)}")
+    print(f"Optimal Policy:         {policy}")
     for s in range(env.nS):
-        a = np.argmax(policy[s])
-        print(f"State {s}: {['LEFT', 'RIGHT'][a]}")
+        print(f"  State {s}: {'LEFT' if policy[s] == 0 else 'RIGHT'}")
+    print(f"\nConverged: {info.converged} in {info.iterations} iterations")

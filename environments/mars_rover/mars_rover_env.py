@@ -1,256 +1,286 @@
 """
 Mars Rover Environment for Reinforcement Learning.
 
-This module provides a customized Gymnasium environment simulating
-a Mars rover navigating across a linear landscape.
+A customised Gymnasium environment that simulates a rover navigating a
+one-dimensional Martian landscape with stochastic transitions.
+
+Author: Simon Hirlaender
+Course: Introduction to Reinforcement Learning 2026 — Paris Lodron University Salzburg
 """
 
-import numpy as np
+from __future__ import annotations
+
+import sys
+from io import StringIO
+from typing import Any, Optional
+
 import gymnasium as gym
-from gymnasium.envs.toy_text import DiscreteEnv
-from typing import Optional, Tuple, Dict, List, Any, Union
+import numpy as np
+from gymnasium import spaces
 
 
-class MarsRoverEnv(DiscreteEnv):
+# ---------------------------------------------------------------------------
+# Mars Rover MDP
+# ---------------------------------------------------------------------------
+
+class MarsRoverEnv(gym.Env):
+    """Discrete Mars Rover environment (Gymnasium v1.x compatible).
+
+    The rover sits on a 1-D track of ``n_states`` non-terminal positions
+    flanked by two terminal states (indices ``0`` and ``n_states + 1``).
+    At every step the rover chooses LEFT (0) or RIGHT (1).  The actual
+    transition is stochastic:
+
+    * with probability ``p_forward`` the rover moves in the chosen direction,
+    * with probability ``p_stay`` it stays in place,
+    * with probability ``p_backward`` it moves in the opposite direction.
+
+    Reaching a terminal state ends the episode and yields the corresponding
+    reward.
+
+    Attributes
+    ----------
+    LEFT, RIGHT : int
+        Action constants.
+    nS : int
+        Total number of states (including terminals).
+    nA : int
+        Number of actions (always 2).
+    P : dict
+        Full transition table  ``P[s][a] -> [(prob, next_s, reward, done), ...]``.
     """
-    Mars Rover environment for reinforcement learning.
-    
-    The rover navigates a linear path with discrete states and
-    probabilistic transitions. The goal is to reach the right terminal state.
-    
-    Attributes:
-        LEFT (int): Constant representing the left movement action (0)
-        RIGHT (int): Constant representing the right movement action (1)
-    """
-    
-    LEFT = 0
-    RIGHT = 1
-    
+
+    metadata = {"render_modes": ["human", "ansi"], "render_fps": 4}
+
+    LEFT: int = 0
+    RIGHT: int = 1
+
+    # ------------------------------------------------------------------
+    # Construction
+    # ------------------------------------------------------------------
+
     def __init__(
-        self, 
-        n_states: int = 5, 
-        p_stay: float = 0.2, 
-        p_backward: float = 0.1,
-        left_side_reward: float = 0.0,
-        right_side_reward: float = 1.0
-    ):
+        self,
+        n_states: int = 5,
+        p_stay: float = 1 / 3,
+        p_backward: float = 1 / 3,
+        left_side_reward: float = 1.0,
+        right_side_reward: float = 10.0,
+        render_mode: Optional[str] = None,
+    ) -> None:
+        """Create a Mars Rover environment.
+
+        Parameters
+        ----------
+        n_states:
+            Number of *non-terminal* states.
+        p_stay:
+            Probability of staying in place despite the chosen action.
+        p_backward:
+            Probability of moving opposite to the chosen action.
+        left_side_reward:
+            Reward for reaching the left terminal state (index 0).
+        right_side_reward:
+            Reward for reaching the right terminal state.
+        render_mode:
+            ``"human"`` prints to stdout; ``"ansi"`` returns a string.
         """
-        Initialize the Mars Rover environment.
-        
-        Args:
-            n_states: Number of non-terminal states (excluding terminal states)
-            p_stay: Probability of staying in the same state despite taking an action
-            p_backward: Probability of moving in the opposite direction of the action
-            left_side_reward: Reward for reaching the left terminal state
-            right_side_reward: Reward for reaching the right terminal state
-        """
-        # Validate parameters
-        assert 0 <= p_stay <= 1, "p_stay must be between 0 and 1"
-        assert 0 <= p_backward <= 1, "p_backward must be between 0 and 1"
-        assert p_stay + p_backward <= 1, "Sum of p_stay and p_backward must not exceed 1"
-        
+        super().__init__()
+
+        # --- validate ------------------------------------------------
+        if not (0 <= p_stay <= 1):
+            raise ValueError(f"p_stay must be in [0, 1], got {p_stay}")
+        if not (0 <= p_backward <= 1):
+            raise ValueError(f"p_backward must be in [0, 1], got {p_backward}")
+        if p_stay + p_backward > 1:
+            raise ValueError(
+                f"p_stay + p_backward must be ≤ 1, got {p_stay + p_backward}"
+            )
+
+        # --- store parameters ----------------------------------------
         self.n_states = n_states
         self.p_stay = p_stay
         self.p_backward = p_backward
+        self.p_forward = 1.0 - p_stay - p_backward
         self.left_side_reward = left_side_reward
         self.right_side_reward = right_side_reward
-        
-        # Total states including terminal states
-        nS = n_states + 2
-        # Actions: left and right
-        nA = 2
-        
-        # Initial state distribution: always start in middle state
-        isd = np.zeros(nS)
-        isd[n_states // 2 + 1] = 1.0
-        
-        # Create transition probability matrix
-        P = self._create_transition_matrix(nS, nA)
-        
-        # Initialize the DiscreteEnv superclass
-        super(MarsRoverEnv, self).__init__(nS, nA, P, isd)
-    
-    def _create_transition_matrix(self, nS: int, nA: int) -> Dict:
-        """
-        Create the transition probability matrix.
-        
-        Args:
-            nS: Total number of states including terminal states
-            nA: Number of actions
-            
-        Returns:
-            Dict: Transition probability matrix
-        """
-        P = {s: {a: [] for a in range(nA)} for s in range(nS)}
-        
-        # Terminal states
-        P[0][self.LEFT] = [(1.0, 0, self.left_side_reward, True)]
-        P[0][self.RIGHT] = [(1.0, 0, self.left_side_reward, True)]
-        
-        P[nS-1][self.LEFT] = [(1.0, nS-1, self.right_side_reward, True)]
-        P[nS-1][self.RIGHT] = [(1.0, nS-1, self.right_side_reward, True)]
-        
-        # Non-terminal states
-        p_forward = 1.0 - self.p_stay - self.p_backward
-        
-        for s in range(1, nS-1):
-            # Left action
-            P[s][self.LEFT] = self._calculate_outcomes(
-                s, self.LEFT, p_forward, nS
-            )
-            
-            # Right action
-            P[s][self.RIGHT] = self._calculate_outcomes(
-                s, self.RIGHT, p_forward, nS
-            )
-        
-        return P
-    
-    def _calculate_outcomes(self, state: int, action: int, p_forward: float, nS: int) -> List[Tuple]:
-        """
-        Calculate possible outcomes for a given state-action pair.
-        
-        Args:
-            state: Current state
-            action: Chosen action
-            p_forward: Probability of moving in the intended direction
-            nS: Total number of states
-            
-        Returns:
-            List of (probability, next_state, reward, done) tuples
-        """
-        outcomes = []
-        
-        # Stay in the same state
-        if self.p_stay > 0:
-            outcomes.append((self.p_stay, state, 0.0, False))
-        
-        # Move backward
-        if self.p_backward > 0:
-            next_state = state + 1 if action == self.LEFT else state - 1
-            
-            # Check if moving backward leads to a terminal state
-            if next_state == 0:
-                outcomes.append((self.p_backward, next_state, self.left_side_reward, True))
-            elif next_state == nS - 1:
-                outcomes.append((self.p_backward, next_state, self.right_side_reward, True))
-            else:
-                outcomes.append((self.p_backward, next_state, 0.0, False))
-        
-        # Move forward
-        if p_forward > 0:
-            next_state = state - 1 if action == self.LEFT else state + 1
-            
-            # Check if moving forward leads to a terminal state
-            if next_state == 0:
-                outcomes.append((p_forward, next_state, self.left_side_reward, True))
-            elif next_state == nS - 1:
-                outcomes.append((p_forward, next_state, self.right_side_reward, True))
-            else:
-                outcomes.append((p_forward, next_state, 0.0, False))
-        
-        return outcomes
-    
-    def render(self, mode: str = "human") -> None:
-        """
-        Render the environment.
-        
-        Args:
-            mode: Rendering mode
-        """
-        outfile = StringIO() if mode == 'ansi' else None
-        
-        desc = ["T"] + ["O"] * (self.n_states) + ["T"]
-        desc[self.s] = "X"
-        
-        if outfile is not None:
-            outfile.write(" ".join(desc) + "\n")
-            return outfile
-        else:
-            print(" ".join(desc))
+        self.render_mode = render_mode
 
+        # --- derived sizes -------------------------------------------
+        self.nS: int = n_states + 2  # includes two terminal states
+        self.nA: int = 2
+
+        # --- spaces ---------------------------------------------------
+        self.observation_space = spaces.Discrete(self.nS)
+        self.action_space = spaces.Discrete(self.nA)
+
+        # --- transition table ----------------------------------------
+        self.P = self._build_transitions()
+
+        # --- initial state distribution (start in the middle) --------
+        self.isd = np.zeros(self.nS, dtype=np.float64)
+        self.isd[n_states // 2 + 1] = 1.0
+
+        # --- internal state ------------------------------------------
+        self.s: int = int(np.argmax(self.isd))
+
+    # ------------------------------------------------------------------
+    # Transition construction
+    # ------------------------------------------------------------------
+
+    def _build_transitions(self) -> dict[int, dict[int, list[tuple[float, int, float, bool]]]]:
+        """Build the full transition table ``P[s][a]``."""
+        P: dict[int, dict[int, list[tuple[float, int, float, bool]]]] = {
+            s: {a: [] for a in range(self.nA)} for s in range(self.nS)
+        }
+
+        # --- terminal states (absorbing with reward) -----------------
+        for a in range(self.nA):
+            P[0][a] = [(1.0, 0, 0.0, True)]
+            P[self.nS - 1][a] = [(1.0, self.nS - 1, 0.0, True)]
+
+        # --- non-terminal states -------------------------------------
+        for s in range(1, self.nS - 1):
+            for a in (self.LEFT, self.RIGHT):
+                P[s][a] = self._outcomes(s, a)
+
+        return P
+
+    def _outcomes(
+        self, s: int, action: int
+    ) -> list[tuple[float, int, float, bool]]:
+        """Return ``[(prob, next_state, reward, terminated), ...]``."""
+        move = -1 if action == self.LEFT else 1
+        results: list[tuple[float, int, float, bool]] = []
+
+        def _append(prob: float, next_s: int) -> None:
+            next_s = int(np.clip(next_s, 0, self.nS - 1))
+            is_terminal = next_s in (0, self.nS - 1)
+            reward = {0: self.left_side_reward, self.nS - 1: self.right_side_reward}.get(next_s, 0.0)
+            results.append((prob, next_s, reward, is_terminal))
+
+        if self.p_forward > 0:
+            _append(self.p_forward, s + move)
+        if self.p_stay > 0:
+            _append(self.p_stay, s)
+        if self.p_backward > 0:
+            _append(self.p_backward, s - move)
+
+        return results
+
+    # ------------------------------------------------------------------
+    # Gymnasium API
+    # ------------------------------------------------------------------
+
+    def reset(
+        self,
+        *,
+        seed: Optional[int] = None,
+        options: Optional[dict[str, Any]] = None,
+    ) -> tuple[int, dict[str, Any]]:
+        """Reset the environment and return ``(observation, info)``."""
+        super().reset(seed=seed, options=options)
+        self.s = int(self.np_random.choice(self.nS, p=self.isd))
+        return self.s, {}
+
+    def step(
+        self, action: int
+    ) -> tuple[int, float, bool, bool, dict[str, Any]]:
+        """Execute *action* and return ``(obs, reward, terminated, truncated, info)``."""
+        transitions = self.P[self.s][action]
+        probs = [t[0] for t in transitions]
+        idx = int(self.np_random.choice(len(transitions), p=probs))
+        prob, next_state, reward, terminated = transitions[idx]
+        self.s = next_state
+        return next_state, float(reward), terminated, False, {"prob": prob}
+
+    # ------------------------------------------------------------------
+    # Rendering
+    # ------------------------------------------------------------------
+
+    def render(self) -> Optional[str]:
+        """Render the current state of the environment."""
+        desc = ["[T]"] + [f" {i} " for i in range(1, self.nS - 1)] + ["[T]"]
+        desc[self.s] = f"<{desc[self.s].strip()}>"
+
+        line = " ".join(desc)
+
+        if self.render_mode == "ansi":
+            outfile = StringIO()
+            outfile.write(line + "\n")
+            return outfile.getvalue()
+        elif self.render_mode == "human":
+            print(line)
+        return None
+
+
+# ---------------------------------------------------------------------------
+# MRP Wrapper
+# ---------------------------------------------------------------------------
 
 class MarsRoverMRPWrapper(gym.Wrapper):
+    """Convert the Mars Rover MDP into an MRP by fixing a policy.
+
+    Parameters
+    ----------
+    env:
+        A ``MarsRoverEnv`` instance.
+    policy:
+        Array of shape ``(nS, nA)`` where ``policy[s, a]`` is the
+        probability of choosing action *a* in state *s*.
+        Defaults to a uniform random policy.
     """
-    A wrapper that converts the MDP into an MRP by fixing a policy.
-    
-    This wrapper demonstrates how to convert a Markov Decision Process (MDP)
-    into a Markov Reward Process (MRP) by following a fixed policy.
-    
-    Attributes:
-        env: The wrapped environment
-        policy: Fixed policy to follow (probability distribution over actions)
-    """
-    
-    def __init__(self, env: MarsRoverEnv, policy: Optional[np.ndarray] = None):
-        """
-        Initialize the MRP wrapper.
-        
-        Args:
-            env: Mars Rover environment to wrap
-            policy: Fixed policy to follow, must be a 2D array of shape (nS, nA)
-                   where policy[s,a] is the probability of taking action a in state s.
-                   If None, a uniform random policy will be used.
-        """
-        super(MarsRoverMRPWrapper, self).__init__(env)
-        
+
+    def __init__(
+        self,
+        env: MarsRoverEnv,
+        policy: Optional[np.ndarray] = None,
+    ) -> None:
+        super().__init__(env)
+        nS: int = env.nS
+        nA: int = env.nA
+
         if policy is None:
-            # Default to uniform random policy
-            self.policy = np.ones((env.nS, env.nA)) / env.nA
+            self.policy = np.ones((nS, nA), dtype=np.float64) / nA
         else:
-            assert policy.shape == (env.nS, env.nA), "Policy shape must match environment dimensions"
-            self.policy = policy
-    
-    def reset(self, **kwargs) -> Tuple[np.ndarray, Dict]:
-        """
-        Reset the environment.
-        
-        Returns:
-            Tuple of observation and info dict
-        """
-        return self.env.reset(**kwargs)
-    
-    def step(self, action: Optional[int] = None) -> Tuple[np.ndarray, float, bool, bool, Dict]:
-        """
-        Take a step in the environment following the fixed policy.
-        
-        The action parameter is ignored since we follow the fixed policy.
-        
-        Args:
-            action: Ignored parameter
-            
-        Returns:
-            Tuple of (observation, reward, terminated, truncated, info)
-        """
-        # Sample action from policy for current state
-        current_state = self.env.s
+            if policy.shape != (nS, nA):
+                raise ValueError(
+                    f"Policy shape {policy.shape} does not match ({nS}, {nA})"
+                )
+            self.policy = np.asarray(policy, dtype=np.float64)
+
+    def step(
+        self, action: Optional[int] = None
+    ) -> tuple[int, float, bool, bool, dict[str, Any]]:
+        """Step using the fixed policy (the *action* argument is ignored)."""
+        current_state: int = self.env.unwrapped.s  # type: ignore[attr-defined]
         action_probs = self.policy[current_state]
-        action = np.random.choice(self.env.nA, p=action_probs)
-        
-        # Take the sampled action in the environment
-        return self.env.step(action)
+        chosen = int(self.np_random.choice(self.env.unwrapped.nA, p=action_probs))  # type: ignore[attr-defined]
+        return self.env.step(chosen)
 
 
-# Add this import if using StringIO for rendering
-from io import StringIO
+# ---------------------------------------------------------------------------
+# Quick demo
+# ---------------------------------------------------------------------------
 
-# If this file is run as a script, provide a simple demo
 if __name__ == "__main__":
-    env = MarsRoverEnv()
-    obs = env.reset()[0]
-    
+    env = MarsRoverEnv(render_mode="human")
+    obs, info = env.reset(seed=42)
+
     print("Mars Rover Environment Demo")
-    print("---------------------------")
-    print(f"Observation space: {env.observation_space}")
-    print(f"Action space: {env.action_space}")
-    print(f"Initial state: {obs}")
-    
-    for i in range(10):
+    print("=" * 40)
+    print(f"Observation space : {env.observation_space}")
+    print(f"Action space      : {env.action_space}")
+    print(f"Number of states  : {env.nS}")
+    print(f"Initial state     : {obs}\n")
+
+    for step_i in range(10):
         action = env.action_space.sample()
         obs, reward, terminated, truncated, info = env.step(action)
-        print(f"Step {i+1}: Action={action}, State={obs}, Reward={reward}, Done={terminated or truncated}")
+        action_name = "LEFT" if action == MarsRoverEnv.LEFT else "RIGHT"
+        print(f"  Step {step_i + 1:>2}: {action_name:>5} → state={obs}, r={reward:.1f}, done={terminated}")
         env.render()
-        
+
         if terminated or truncated:
-            print("Environment reset!")
-            obs = env.reset()[0]
+            print("  ── episode reset ──")
+            obs, info = env.reset()
