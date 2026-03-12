@@ -9,7 +9,7 @@ Exercise materials for the course **[536.112 — Reinforcement Learning (UE, 1 S
 |---|---|
 | **Instructors** | Simon Hirlaender, Kajsa Miho Björkbom, Sarah Trausner |
 | **Department** | FB Artificial Intelligence and Human Interfaces |
-| **Language** | German |
+| **Language** | English |
 
 <img width="500" alt="Mars Rover" src="https://github.com/MathPhysSim/Introduction2RL_2024/assets/22523245/419f30be-12f0-4445-a077-56b0c8f03eda">
 
