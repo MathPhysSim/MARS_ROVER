@@ -1,13 +1,13 @@
 # Introduction to Reinforcement Learning — 2026
 
-[![Python ≥3.10](https://img.shields.io/badge/python-≥3.10-blue.svg)](https://www.python.org/)
+[![Python >=3.10](https://img.shields.io/badge/python-≥3.10-blue.svg)](https://www.python.org/)
 [![Gymnasium](https://img.shields.io/badge/Gymnasium-v1.x-green.svg)](https://gymnasium.farama.org/)
 
 Course materials for the **Introduction to Reinforcement Learning** lecture and exercises held at Paris Lodron University Salzburg in **2026** by **Simon Hirlaender**.
 
 <img width="500" alt="Mars Rover" src="https://github.com/MathPhysSim/Introduction2RL_2024/assets/22523245/419f30be-12f0-4445-a077-56b0c8f03eda">
 
-## 📚 Course Overview
+## Course Overview
 
 This repository provides:
 
@@ -18,7 +18,7 @@ This repository provides:
   - Tabular Q-Learning
 - Exercise materials and documentation
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
@@ -43,7 +43,7 @@ pip install -e .
 pip install -e ".[notebooks]"
 ```
 
-## 📂 Project Structure
+## Project Structure
 
 ```
 .
@@ -51,7 +51,7 @@ pip install -e ".[notebooks]"
 │   ├── __init__.py
 │   ├── value_iteration.py     # Value Iteration (tabular)
 │   ├── policy_iteration.py    # Policy Iteration (tabular)
-│   └── q_learning.py          # Tabular Q-Learning (ε-greedy)
+│   └── q_learning.py          # Tabular Q-Learning (epsilon-greedy)
 ├── environments/
 │   └── mars_rover/
 │       ├── __init__.py
@@ -61,12 +61,12 @@ pip install -e ".[notebooks]"
 ├── exercises/
 │   └── week1/
 │       └── README.md
-├── notebooks/                  # (add your own Jupyter notebooks here)
+├── notebooks/
 ├── pyproject.toml
 └── README.md
 ```
 
-## 🎮 Quick Example
+## Quick Example
 
 ```python
 from environments.mars_rover import MarsRoverEnv
@@ -82,11 +82,11 @@ print(f"Value function: {V}")
 print(f"Policy: {policy}")  # 0 = LEFT, 1 = RIGHT
 ```
 
-## 📄 License
+## License
 
 MIT — see individual files for details.
 
-## 👤 Author
+## Author
 
 **Simon Hirlaender**
 Paris Lodron University Salzburg — 2026
